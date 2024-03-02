@@ -1,0 +1,84 @@
+---
+- name: Установка MySQL
+  block:
+  - name: Установка зависимостей
+    apt:
+      name: "{{ item }}"
+      state: present
+    loop:
+      - apt-transport-https
+      - lsb-release
+      - ca-certificates
+      - curl
+      - dirmngr
+      - gnupg
+
+  - name: Установка пакета wget
+    apt:
+      name: wget
+      state: present
+
+  - name: Скачивание MySQL APT репозитория
+    shell: wget -O /tmp/mysql-apt-config_0.8.18-1_all.deb https://dev.mysql.com/get/mysql-apt-config_0.8.18-1_all.deb
+      
+
+  - name: Установка MySQL APT репозитория
+    apt:
+      deb: "/tmp/mysql-apt-config_0.8.18-1_all.deb"
+
+  - name: Импорт GPG-ключа для репозитория MySQL
+    shell: apt-key adv --keyserver keyserver.ubuntu.com --recv-keys B7B3B788A8D3785C
+
+  - name: Добавление официального репозитория MySQL
+    apt_repository:
+      repo: deb http://repo.mysql.com/apt/debian/ bookworm mysql-8.0
+      state: present
+      update_cache: yes
+
+  - name: Установка MySQL сервера
+    apt:
+      name: mysql-server
+      state: present
+
+- name: Установка и инициализация Nginx и PHP
+  block:
+  - name: Установка Nginx
+    ansible.builtin.apt:
+      name: nginx
+      update_cache: true
+      cache_valid_time: 86400
+
+  - name: Установка PHP и необходимых расширений
+    apt:
+      name: "{{ item }}"
+      state: present
+    loop:
+      - php-fpm
+      - php-mysql
+
+  - name: Копирование конфигурационного файла для сайта
+    template:
+      src: nginx-site.conf.j2
+      dest: /etc/nginx/sites-available/default
+    notify:
+      - restart nginx
+
+  - name: Создание папки для phpinfo
+    file:
+      path: /var/www/html
+      state: directory
+      mode: 0755
+
+  - name: Создание файла phpinfo.php
+    copy:
+      src: phpinfo.php
+      dest: /var/www/html/phpinfo.php
+
+- name: Вывод результата команды phpinfo()
+  block:
+  - name: Собираем результат команды phpinfo()
+    shell: php -r "phpinfo();"
+    register: phpinfo_output
+
+  - debug:
+      msg: "{{ phpinfo_output.stdout }}"

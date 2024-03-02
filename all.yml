@@ -1,0 +1,5 @@
+---
+- name: Установка и настройка веб-сервера
+  hosts: serv
+  roles:
+    - servers
